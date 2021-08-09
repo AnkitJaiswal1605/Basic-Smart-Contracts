@@ -17,12 +17,12 @@ contract Exchange is Tokn {
     mapping(uint => address) public seller;
     mapping(uint => address) public buyer;
     
-        function lowestAskOrder() public view returns(uint) {
+    function lowestAskOrder() public view returns(uint) {
         uint lowestAsk = sellOrders[0].price;
         uint id = 0;
         for(uint i = 1; i < sellOrders.length; i++) {
             if (sellOrders[i].price < lowestAsk && sellOrders[i].qty !=0) {
-                id = i;
+               id = i;
             }
         }
         return id;
