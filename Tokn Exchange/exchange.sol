@@ -38,19 +38,27 @@ contract Exchange is Tokn {
         }
         return id;
     }
+    
+    function addSellOrder(uint _qty, uint _price) internal {
+        sellOrders.push(Order(_qty, _price));
+        uint id = sellOrders.length - 1;
+        seller[id] = msg.sender;        
+    }
 
     function sellLimitOrder(uint _qty, uint _price) public {
         require(_qty <= balances[msg.sender]);
-        uint buyId = highestBidOrder();
-        Order memory target = buyOrders[buyId];
-        if(_price <= target.price && _qty <= target.qty) {
-            balances[msg.sender] -= _qty;
-            balances[buyer[buyId]] += _qty;
-            buyOrders[buyId].qty = 0;
+        if(buyOrders.length == 0) {
+            addSellOrder(_qty, _price);
         } else {
-        sellOrders.push(Order(_qty, _price));
-        uint id = sellOrders.length - 1;
-        seller[id] = msg.sender;
+            uint buyId = highestBidOrder();
+            Order memory target = buyOrders[buyId];
+            if(_price <= target.price && _qty <= target.qty) {
+                balances[msg.sender] -= _qty;
+                balances[buyer[buyId]] += _qty;
+                buyOrders[buyId].qty = 0;
+            } else {
+            addSellOrder(_qty, _price);
+            }
         }
     }
     
@@ -70,6 +78,7 @@ contract Exchange is Tokn {
     
     function sellMarketOrder(uint _qty) public {
         require(_qty <= balances[msg.sender]);
+        require(buyOrders.length !=0, "No buy orders currently available");
         uint buyId = highestBidOrder();
         Order memory target = buyOrders[buyId];
         if(_qty <= target.qty) {
@@ -80,6 +89,7 @@ contract Exchange is Tokn {
     }
     
     function buyMarketOrder(uint _qty) public {
+        require(sellOrders.length !=0, "No sell orders currently available");
         uint sellId = lowestAskOrder();
         Order memory target = sellOrders[sellId];
         if(_qty <= target.qty) {
