@@ -44,6 +44,12 @@ contract Exchange is Tokn {
         uint id = sellOrders.length - 1;
         seller[id] = msg.sender;        
     }
+    
+    function addBuyOrder(uint _qty, uint _price) internal {
+        buyOrders.push(Order(_qty, _price));
+        uint id = buyOrders.length - 1;
+        buyer[id] = msg.sender;        
+    }    
 
     function sellLimitOrder(uint _qty, uint _price) public {
         require(_qty <= balances[msg.sender]);
@@ -52,27 +58,43 @@ contract Exchange is Tokn {
         } else {
             uint buyId = highestBidOrder();
             Order memory target = buyOrders[buyId];
-            if(_price <= target.price && _qty <= target.qty) {
-                balances[msg.sender] -= _qty;
-                balances[buyer[buyId]] += _qty;
-                buyOrders[buyId].qty = 0;
+            if(_price <= target.price) {
+                if(_qty <= target.qty) {
+                    balances[msg.sender] -= _qty;
+                    balances[buyer[buyId]] += _qty;
+                    buyOrders[buyId].qty -= _qty;
+                } else {
+                    balances[msg.sender] -= target.qty;
+                    balances[buyer[buyId]] += target.qty;
+                    buyOrders[buyId].qty -= target.qty;
+                    sellLimitOrder(_qty - target.qty, _price);
+                }
             } else {
-            addSellOrder(_qty, _price);
+                addSellOrder(_qty, _price);
             }
         }
     }
     
     function buyLimitOrder(uint _qty, uint _price) public {
-        uint sellId = lowestAskOrder();
-        Order memory target = sellOrders[sellId];
-        if(_price >= target.price && _qty <= target.qty) {
-            balances[msg.sender] += _qty;
-            balances[seller[sellId]] -= _qty;
-            sellOrders[sellId].qty = 0;
+        if(sellOrders.length == 0) {
+            addBuyOrder(_qty, _price);
         } else {
-        buyOrders.push(Order(_qty, _price));
-        uint id = buyOrders.length - 1;
-        buyer[id] = msg.sender;
+            uint sellId = lowestAskOrder();
+            Order memory target = sellOrders[sellId];
+            if(_price >= target.price) {
+                if(_qty <= target.qty) {                
+                    balances[msg.sender] += _qty;
+                    balances[seller[sellId]] -= _qty;
+                    sellOrders[sellId].qty -= _qty;
+                } else {
+                    balances[msg.sender] += target.qty;
+                    balances[seller[sellId]] -= target.qty;
+                    sellOrders[sellId].qty -= target.qty;
+                    buyLimitOrder(_qty - target.qty, _price);
+                }
+            } else {
+                addBuyOrder(_qty, _price);
+            }
         }
     }
     
@@ -84,7 +106,12 @@ contract Exchange is Tokn {
         if(_qty <= target.qty) {
             balances[msg.sender] -= _qty;
             balances[buyer[buyId]] += _qty;
-            buyOrders[buyId].qty = 0;
+            buyOrders[buyId].qty -= _qty;
+        } else {
+            balances[msg.sender] -= target.qty;
+            balances[buyer[buyId]] += target.qty;
+            buyOrders[buyId].qty -= target.qty;
+            sellMarketOrder(_qty - target.qty);
         }
     }
     
@@ -95,7 +122,12 @@ contract Exchange is Tokn {
         if(_qty <= target.qty) {
             balances[msg.sender] += _qty;
             balances[seller[sellId]] -= _qty;
-            sellOrders[sellId].qty = 0;
+            sellOrders[sellId].qty -= _qty;
+        } else {
+            balances[msg.sender] += target.qty;
+            balances[seller[sellId]] -= target.qty;
+            sellOrders[sellId].qty -= target.qty;
+            buyMarketOrder(_qty - target.qty);
         }
     }
     
